@@ -1,0 +1,11 @@
+Flask
+Flask-Login
+Flask-SocketIO
+Flask-SQLAlchemy
+Flask-Migrate
+python-socketio
+python-engineio
+eventlet
+docker
+requests 
+dnspython

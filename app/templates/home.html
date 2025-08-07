@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Welcome - Attack Station{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-top: 60px;">
+    <h1>Welcome to Attack Station</h1>
+    <p style="font-size: 1.2em; margin: 20px 0;">
+        Attack Station is your powerful automated security scanner for Web Applications and APIs.
+    </p>
+
+    <p style="font-size: 1.1em; max-width: 800px; margin: 0 auto 30px auto; line-height: 1.6;">
+        It allows developers and security teams to initiate on-demand scans, detect vulnerabilities across different environments,
+        and review OWASP Top 10 risks such as SQL Injection, Cross-Site Scripting (XSS), Insecure Authentication, and more.
+        You can track vulnerabilities by severity, export results, and stay on top of your application security posture.
+    </p>
+
+    <a href="{{ url_for('main.login') }}" style="
+        display: inline-block;
+        padding: 12px 24px;
+        background-color: #007bff;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 1em;
+    ">Login to Get Started</a>
+</div>
+{% endblock %}

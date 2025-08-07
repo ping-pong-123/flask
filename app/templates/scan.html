@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Scan: {{ scan.scan_name }}{% endblock %}
+
+{% block content %}
+<div class="scan-details-container">
+    <nav class="breadcrumb">
+        <a href="{{ url_for('main.dashboard') }}">Dashboard</a> / Scan: {{ scan.scan_name }}
+    </nav>
+
+    <div class="scan-header">
+        <h2>{{ scan.scan_name }}</h2>
+        <span id="status" class="badge status-{{ scan.status|lower }}">{{ scan.status }}</span>
+    </div>
+
+    <div class="scan-meta">
+        <p><strong>Target:</strong> {{ scan.target_url }}</p>
+        <p><strong>Scan Type:</strong> {{ scan.scan_type }}</p>
+        <p><strong>Started:</strong> {{ scan.start_time.strftime("%Y-%m-%d %H:%M:%S") if scan.start_time else "N/A" }}</p>
+        <p><strong>Ended:</strong> {{ scan.end_time.strftime("%Y-%m-%d %H:%M:%S") if scan.end_time else "In Progress" }}</p>
+    </div>
+
+    <div class="scan-progress">
+        <label>Scan Progress:</label>
+        <div class="progress-bar">
+            <div id="progressFill" class="fill"></div>
+        </div>
+    </div>
+    <div id="userPromptModal" style="display:none;">
+    <p id="stepMessage"></p>
+    <p id="commandText"></p> <button onclick="sendUserDecision('approve')">✅ Approve</button>
+    <button onclick="sendUserDecision('skip')">⏭ Skip</button>
+    <button onclick="sendUserDecision('terminate')">❌ Terminate</button>
+    </div>
+    <div class="log-section">
+        <div class="log-actions">
+            <button onclick="copyLog()">📋 Copy Log</button>
+            <button onclick="downloadLog()">⬇️ Download Log</button>
+            <!-- 🔹 NEW: Pause/Resume Button -->
+            {% if scan.status == "In Progress" %}
+            <button id="pauseResumeBtn" onclick="togglePauseResume()">
+                {% if scan.is_paused %}
+                    ▶️ Resume Scan
+                {% else %}
+                    ⏸️ Pause Scan
+                {% endif %}
+            </button>
+            {% endif %}
+        </div>
+        <!-- 🔹 Pre-populate the log from the database, use default to handle None -->
+        <pre id="scan-log" class="scan-log">{{ scan.log_data|default('') }}</pre>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <ul class="flashes">
+            {% for category, message in messages %}
+                <li class="{{ category }}">{{ message }}</li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+</div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js" crossorigin="anonymous"></script>
+<script>
+    const scanId = {{ scan.id }};
+    const socket = io("/scan");  // <-- IMPORTANT: connect to correct namespace
+    const logElem = document.getElementById("scan-log");
+    const statusElem = document.getElementById("status");
+    const progressFill = document.getElementById("progressFill");
+    const pauseResumeBtn = document.getElementById("pauseResumeBtn"); // 🔹 NEW: Get reference to the button
+
+    // 🔹 New logic to initialize progress bar and status on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        const currentStatus = "{{ scan.status }}";
+        if (currentStatus === "Completed" || currentStatus === "Failed") {
+            progressFill.style.width = '100%';
+        } else {
+            // This is for scans that are in progress, or haven't started yet
+            progressFill.style.width = '0%';
+        }
+    });
+
+    socket.on('connect', () => {
+        console.log('Connected to scan socket');
+    });
+
+    function sendUserDecision(action) {
+        const buttons = document.querySelectorAll("#userPromptModal button");
+        buttons.forEach(btn => btn.disabled = true);
+
+        fetch(`/api/command/respond/${window.currentCommandId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action })
+        }).finally(() => {
+            document.getElementById('userPromptModal').style.display = 'none';
+            buttons.forEach(btn => btn.disabled = false);
+        });
+    }
+
+    socket.on("user_prompt_" + scanId, (data) => {
+        window.currentCommandId = data.command_id;
+        document.getElementById('commandText').innerText = data.command;
+        document.getElementById('userPromptModal').style.display = 'block';
+    });
+
+    socket.on('connect', () => {
+        console.log('Connected to Socket.IO /scan');
+        
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Disconnected from Socket.IO');
+    });
+    
+    let progress = 0;
+
+    socket.on(`scan_update_${scanId}`, data => {
+        // Add message to the scan log
+        logElem.textContent += (data.message || '') + "\n";
+        logElem.scrollTop = logElem.scrollHeight;
+
+        // Optional: update progress bar and status if phase is present
+        if ('phase' in data) {
+            if (data.phase <= 4) {
+                progress = Math.min(100, (data.phase / 4) * 100);
+                progressFill.style.width = progress + '%';
+            }
+            if (data.phase === 4) {
+                statusElem.textContent = "Completed";
+                if (pauseResumeBtn) {
+                    pauseResumeBtn.style.display = 'none';
+                }
+            }
+        }
+        // 🔹 NEW: Update button text based on is_paused status from server
+        if ('is_paused' in data && pauseResumeBtn) {
+            if (data.is_paused) {
+                pauseResumeBtn.textContent = '▶️ Resume Scan';
+                statusElem.textContent = 'Paused'; // Update status badge visually
+                statusElem.classList.remove('status-in-progress');
+                statusElem.classList.add('status-paused'); // Add a new class for paused state
+            } else {
+                pauseResumeBtn.textContent = '⏸️ Pause Scan';
+                statusElem.textContent = 'In Progress'; // Update status badge visually
+                statusElem.classList.remove('status-paused');
+                statusElem.classList.add('status-in-progress');
+            }
+        }
+    });
+    // 🔹 NEW: Function to send pause/resume request to server
+    async function togglePauseResume() {
+        if (!pauseResumeBtn) return; // Button might not exist if scan is completed/failed
+
+        // Disable button to prevent multiple clicks
+        pauseResumeBtn.disabled = true;
+        pauseResumeBtn.textContent = 'Processing...';
+
+        try {
+            const response = await fetch(`/scan/${scanId}/toggle_pause`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                console.log(`Scan ${data.is_paused ? 'paused' : 'resumed'}.`);
+                // UI will be updated by the socket.on(`scan_update_${scanId}`) event
+            } else {
+                alert(`Failed to toggle scan: ${data.message || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error toggling pause/resume:', error);
+            alert('An error occurred while trying to toggle scan status.');
+        } finally {
+            pauseResumeBtn.disabled = false; // Re-enable button
+            // Text will be set by socket.on event
+        }
+    }
+
+    function copyLog() {
+        const text = logElem.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Log copied to clipboard!");
+        });
+    }
+
+    function downloadLog() {
+        const blob = new Blob([logElem.textContent], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "scan_log_{{ scan.scan_name }}.txt";
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Register{% endblock %}
+
+{% block content %}
+<div class="register-container">
+  <div class="register-card">
+    <h3>User Registration</h3>
+
+    <form method="POST" class="form-box" onsubmit="return validateForm()">
+      <div class="form-group">
+        <label for="username">Username:</label>
+        <input type="text" name="username" id="username" required minlength="3" placeholder="Enter username">
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email:</label>
+        <input type="email" name="email" id="email" required placeholder="Enter email">
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" name="password" id="password" required minlength="6" placeholder="Enter password">
+      </div>
+
+      <div class="form-group">
+        <label for="confirm_password">Confirm Password:</label>
+        <input type="password" id="confirm_password" placeholder="Re-enter password" required>
+      </div>
+
+      <div class="form-group checkbox-group">
+        <input type="checkbox" id="showPassword" onclick="togglePasswordVisibility()">
+        <label for="showPassword" style="display: inline;">Show Passwords</label>
+      </div>
+
+      <div class="form-group checkbox-group">
+        <input type="checkbox" id="terms" required>
+        <label for="terms">I agree to the <a href="https://attackstation.com/privacy.html">Terms & Conditions</a></label>
+      </div>
+
+      <div class="form-group">
+        <button type="submit">Register</button>
+      </div>
+    </form>
+
+    <p class="register-link">Already have an account? <a href="{{ url_for('main.login') }}">Login here</a>.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+  </div>
+</div>
+
+<script>
+function togglePasswordVisibility() {
+    const pw1 = document.getElementById("password");
+    const pw2 = document.getElementById("confirm_password");
+    const type = pw1.type === "password" ? "text" : "password";
+    pw1.type = pw2.type = type;
+}
+
+function validateForm() {
+    const pw1 = document.getElementById("password").value;
+    const pw2 = document.getElementById("confirm_password").value;
+    if (pw1 !== pw2) {
+        alert("Passwords do not match!");
+        return false;
+    }
+    return true;
+}
+</script>
+{% endblock %}

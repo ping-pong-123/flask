@@ -1,0 +1,4 @@
+basic scan - Alpine (docker pull alpine)
+python run.py --host=0.0.0.0 --port=5000
+
+python3 basic_scan.py '{"target_url": "https://google.com", "scan_id": 17, "scan_name": "hoi", "scan_type": "basic", "environment": "dev", "auth_type": "none", "username": "muuser", "password": "mypassword", "token": "mytoken", "cookies": "key:gfjfgjgsjf;"}'

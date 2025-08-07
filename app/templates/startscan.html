@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Start Scan - Scanner{% endblock %}
+
+{% block content %}
+<main class="content full-width-container">
+  <h2 class="page-title">🚀 Start a New Scan</h2>
+  <form method="POST" id="scanForm" class="scan-form" onsubmit="return handleScanFormSubmit(event);">
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="scan_name">Scan Name:</label>
+        <input type="text" id="scan_name" name="scan_name" placeholder="Scan Name" required>
+      </div>
+
+      <div class="form-group">
+        <label for="environment">Environment:</label>
+        <select id="environment" name="environment" required>
+          <option value="dev">Development</option>
+          <option value="staging">Staging</option>
+          <option value="testing">Testing/QA</option>
+          <option value="production">Production</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="tags">Tags:</label>
+        <input type="text" id="tags" name="tags" placeholder="e.g., Web App, API, Internal">
+      </div>
+
+      <div class="form-group">
+        <label for="scan_type">Scan Type:</label>
+        <select id="scan_type" name="scan_type" required>
+          <option value="basic">Basic Scan</option>
+          <option value="lite">Lite Scan</option>
+          <option value="deep">Deep Scan</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="auth_type">Authentication Type:</label>
+        <select id="auth_type" name="auth_type" onchange="toggleAuthFields()">
+          <option value="none">None</option>
+          <option value="basic">Username & Password</option>
+          <option value="token">Access Token</option>
+        </select>
+      </div>
+
+      <div id="basic_auth_fields" class="form-group hidden">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" placeholder="Username">
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" placeholder="Password">
+      </div>
+
+      <div id="token_auth_field" class="form-group hidden">
+        <label for="access_token">Access Token:</label>
+        <input type="text" id="access_token" name="access_token" placeholder="Authentication Token">
+      </div>
+
+      <div class="form-group full-width">
+        <label for="cookies">Cookies (optional):</label>
+        <textarea id="cookies" name="cookies" rows="2" placeholder="key=value; key2=value2;"></textarea>
+      </div>
+
+
+      <div class="form-group full-width">
+        <label for="target_url">Target URL:</label>
+        <div class="input-with-button">
+          <input type="url" id="target_url" name="target_url" placeholder="e.g., https://example.com/ , https://192.168.0.1/ " required>
+          <button type="button" onclick="validateTarget()" class="btn-inline">Test Connection</button>
+        </div>
+        <span id="target_status"></span>
+      </div>
+      
+      <div class="form-group full-width">
+        <button type="submit" class="btn-primary">Start Scan</button>
+      </div>
+    </div>
+  </form>
+
+  <hr>
+
+  <h3 class="section-title">🟡 Running Scans</h3>
+  <ul class="scan-list">
+    {% for scan in scans if scan.status == "In Progress" %}
+      <li>
+        <a href="{{ url_for('main.scan', scan_id=scan.id) }}" class="view-link">{{ scan.scan_name }}</a> - {{ scan.status }}
+      </li>
+    {% endfor %}
+  </ul>
+</main>
+
+<style>
+.full-width-container {
+  max-width: 100%;
+  padding: 0 5vw;
+}
+
+.scan-form {
+  background: #0b0c13;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  margin: auto;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  align-items: start;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.input-with-button {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+input, select, textarea {
+  padding: 0.8rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.3s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+.btn-inline {
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 8px;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+}
+
+.btn-inline:hover {
+  background-color: #e2e2e2;
+}
+
+.btn-primary {
+  padding: 0.9rem;
+  font-size: 1.1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.2s ease;
+}
+
+.btn-primary:hover {
+  background-color: #0056b3;
+}
+
+.hidden {
+  display: none;
+}
+</style>
+
+<script>
+function toggleAuthFields() {
+  const authType = document.getElementById("auth_type").value;
+  document.getElementById("basic_auth_fields").classList.toggle("hidden", authType !== "basic");
+  document.getElementById("token_auth_field").classList.toggle("hidden", authType !== "token");
+}
+
+// 🔹 CHANGE 3: Modified validateTarget to return a Promise with the validation status
+async function validateTarget() {
+  const url = document.getElementById("target_url").value;
+  const statusEl = document.getElementById("target_status");
+  statusEl.textContent = "Checking...";
+  statusEl.style.color = '#FFA500'; // Orange for checking
+
+  if (!url) {
+      statusEl.textContent = "Please enter a target URL.";
+      statusEl.style.color = 'red';
+      return false; // Indicate failure
+  }
+
+  try {
+    const res = await fetch(`/api/validate_target?url=${encodeURIComponent(url)}`);
+    if (res.status === 401) {
+      alert("⚠️ You must be logged in to validate the target.");
+      window.location.href = "/login?next=" + encodeURIComponent(window.location.pathname);
+      return false; // Indicate failure
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Server returned ${res.status}: ${errText}`);
+    }
+
+    const result = await res.json();
+    if (result.reachable) {
+        statusEl.textContent = "✅ Reachable";
+        statusEl.style.color = 'green';
+        return true; // Indicate success
+    } else {
+        statusEl.textContent = "❌ Unreachable";
+        statusEl.style.color = 'red';
+        return false; // Indicate failure
+    }
+  } catch (err) {
+    statusEl.textContent = "❌ Error validating target. Please check connection.";
+    statusEl.style.color = 'red';
+    console.error("Validation Error:", err);
+    return false; // Indicate failure
+  }
+}
+// 🔹 CHANGE 4: New function to handle form submission
+async function handleScanFormSubmit(event) {
+    event.preventDefault(); // Prevent default form submission initially
+
+    const targetUrlInput = document.getElementById("target_url");
+    const targetStatusSpan = document.getElementById("target_status");
+
+    // Clear previous status messages related to submission
+    targetStatusSpan.textContent = "Checking...";
+    targetStatusSpan.style.color = '#FFA500'; // Orange for checking
+
+    const isReachable = await validateTarget(); // Wait for validation result
+
+    if (isReachable) {
+        // If reachable, allow the form to submit
+        event.target.submit(); // Submit the form programmatically
+        return true; // Indicate that submission is handled
+    } else {
+        // If not reachable, show an alert and prevent submission
+        alert("Target URL is not reachable. Please check the connection or try a different URL.");
+        return false; // Prevent form submission
+    }
+}
+</script>
+{% endblock %}

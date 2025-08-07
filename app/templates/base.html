@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Scanner{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Global base styles for body and typography */
+        body {
+            margin: 0;
+            font-family: 'Courier New', monospace;
+            background-color: #0d1117;
+            color: #c9d1d9;
+        }
+
+        /* Logo styling */
+        .logo {
+          height: 25px;
+          max-height: 25px;
+          width: auto;
+          vertical-align: middle;
+          margin-right: 10px;
+        }
+
+        /* Site Header styling */
+        .site-header {
+            background-color: #161b22;
+            color: #58a6ff;
+            padding: 0.5rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #30363d;
+            min-height: 48px;
+            position: relative; /* For absolute positioning of mobile menu */
+            z-index: 1000;
+        }
+
+        .site-header a {
+            color: #58a6ff;
+            text-decoration: none;
+            margin-left: 15px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .site-header a:hover {
+            text-shadow: 0 0 5px #58a6ff;
+        }
+
+        /* Desktop Navigation links */
+        .nav-links {
+            display: flex; /* Always flex on desktop */
+            gap: 1.5rem; /* Spacing between links */
+        }
+
+        /* Hamburger menu icon styles (hidden by default on desktop) */
+        .menu-toggle {
+            display: none; /* Hidden by default on desktop */
+            font-size: 1.8rem;
+            cursor: pointer;
+            color: #e0e0e0; /* Adjusted for dark theme */
+        }
+
+        /* Main layout container */
+        .layout {
+            display: flex;
+            height: calc(100vh - 48px); /* Full viewport height minus header */
+            overflow: hidden; /* Prevent main scrollbar */
+        }
+
+        /* Main content area */
+        .content {
+            flex-grow: 1;
+            padding: 2rem;
+            background-color: #0d1117;
+            overflow-y: auto; /* Allow scrolling within content */
+        }
+
+        /* Mobile Navigation Overlay styles (hidden by default) */
+        .mobile-nav-overlay {
+            display: none; /* Hidden by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9); /* Darker overlay */
+            z-index: 999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mobile-nav-overlay.active {
+            display: flex; /* Show when active */
+        }
+
+        .mobile-nav-overlay .nav-links-mobile {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            text-align: center;
+        }
+
+        .mobile-nav-overlay .nav-links-mobile a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 1.5rem;
+            padding: 1rem 0;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        .mobile-nav-overlay .nav-links-mobile a:hover {
+            background-color: #3e3e5a;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 1rem;
+            right: 2rem;
+            font-size: 2rem;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        /* Media Query for Mobile Devices (768px and below) */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none; /* Hide desktop nav links */
+            }
+
+            .menu-toggle {
+                display: block; /* Show hamburger icon */
+            }
+            /* Apply mobile layout for main content sections */
+            .layout {
+                flex-direction: column;
+                height: auto; /* Allow height to adjust */
+            }
+
+            /* Sidebar (if enabled) would also adapt */
+            .sidebar {
+                width: 100%;
+                resize: none;
+                border-right: none;
+                border-bottom: 1px solid #30363d;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        {% if current_user.is_authenticated %} 
+            <h3><a href="{{ url_for('main.dashboard') }}" class="app-title"><img src="{{ url_for('static', filename='images/logo.png') }}" class="logo" alt="Attack Station Logo"></a></h3>
+        {% else %}
+                <h3><a href="{{ url_for('main.home') }}" class="app-title"><img src="{{ url_for('static', filename='images/logo.png') }}" class="logo" alt="Attack Station Logo"></a></h3>
+        {% endif %}
+        <!-- 🔹 NEW: Hamburger menu icon -->
+        <div class="menu-toggle" onclick="toggleMobileMenu()">
+            <i class="fas fa-bars"></i>
+        </div>
+        <nav class="nav-links">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('main.dashboard') }}"><b>Dashboard</b></a>&nbsp;&nbsp;
+                <a href="{{ url_for('main.history') }}"><b>History</b></a>&nbsp;&nbsp;
+                <a href="{{ url_for('main.start_scan') }}"><b>Start New Scan</b></a>&nbsp;&nbsp;
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('main.admin_dashboard') }}"><b>Admin Panel</b></a>&nbsp;&nbsp;
+                {% endif %}
+                <a href="{{ url_for('main.logout') }}"><b>Logout</b></a>&nbsp;&nbsp;
+            {% else %}
+                <a href="{{ url_for('main.login') }}"><b>Login</b></a>&nbsp;&nbsp;
+            {% endif %}
+        </nav>
+    </header>
+    <!-- 🔹 NEW: Mobile navigation overlay -->
+    <div id="mobileNavOverlay" class="mobile-nav-overlay">
+        <span class="close-btn" onclick="toggleMobileMenu()">&times;</span>
+        <nav class="nav-links-mobile">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+                <a href="{{ url_for('main.history') }}">History</a>
+                <a href="{{ url_for('main.start_scan') }}">Start New Scan</a>
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('main.admin_dashboard') }}">Admin Panel</a>
+                {% endif %}
+                <a href="{{ url_for('main.logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('main.login') }}">Login</a>
+            {% endif %}
+        </nav>
+    </div>
+    <div class="layout"><!--
+        {% if current_user.is_authenticated and scans %}
+            <aside class="sidebar">
+                <h3>Scan History</h3>
+                <ul>
+                    {% for s in scans %}
+                        <li style="display: flex; justify-content: space-between; align-items: center;">
+                            <a href="{{ url_for('main.scan', scan_id=s.id) }}">{{ s.scan_name }}</a>
+                            <form action="{{ url_for('main.delete_scan', scan_id=s.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this scan?');">
+                                <button type="submit" style="background: none; border: none; color: red; cursor: pointer;">Delete</button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </aside>
+        {% endif %}-->
+        <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+        <main class="content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    <script>
+        // 🔹 NEW: JavaScript function to toggle the mobile menu
+        function toggleMobileMenu() {
+            const mobileNavOverlay = document.getElementById('mobileNavOverlay');
+            mobileNavOverlay.classList.toggle('active');
+            // Optional: Prevent scrolling when menu is open
+            document.body.classList.toggle('no-scroll', mobileNavOverlay.classList.contains('active'));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Scan History{% endblock %}
+
+{% block content %}
+<main class="content">
+    <h2>Scan History</h2>
+
+    <!-- Search and Export -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <input type="text" id="scanSearch" placeholder="Search scan history..." class="scan-search-input">
+        <button onclick="exportHistoryToCSV()" class="btn">Export CSV</button>
+    </div>
+
+    <!-- Scan Table -->
+    <table class="scan-table" id="historyTable">
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)">Date</th>
+                {% if current_user.is_admin %}
+                    <th onclick="sortTable(0)">Scans by Users</th>
+                {% endif %}
+                <th onclick="sortTable(1)">Scan Name</th>
+                <th onclick="sortTable(0)">Target URL</th>
+                <th onclick="sortTable(2)">Type</th>
+                <th onclick="sortTable(3)">Status</th>
+                <th>Details</th>
+                <th>Delete Scan</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for scan in scans %}
+            <tr>
+                <td title="{{ scan.created_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+                    {{ scan.created_at.strftime('%Y-%m-%d %H:%M') }}
+                </td>
+                {% if current_user.is_admin %}
+                    <td>{{ scan.user.username }}</td>
+                {% endif %}
+                <td>{{ scan.scan_name }}</td>
+                <td>{{ scan.target_url }}</td>
+                <td>{{ scan.scan_type }}</td>
+                <td>
+                    <span class="status-badge {{ scan.status | lower }}">{{ scan.status }}</span>
+                </td>
+                <td><a href="{{ url_for('main.scan', scan_id=scan.id) }}" class="view-link">View</a></td>
+                <td><form action="{{ url_for('main.delete_scan', scan_id=scan.id) }}" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this scan?');">
+                        <button type="submit" style="background: none; border: none; color: red; cursor: pointer;">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="text-align: center;">No scan history available.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Scripts -->
+    <script>
+        // Search Filter
+        document.getElementById("scanSearch").addEventListener("keyup", function () {
+            const query = this.value.toLowerCase();
+            document.querySelectorAll("#historyTable tbody tr").forEach(row => {
+                row.style.display = row.textContent.toLowerCase().includes(query) ? "" : "none";
+            });
+        });
+
+        // Sort Table Columns
+        function sortTable(colIndex) {
+            const table = document.getElementById("historyTable");
+            const rows = Array.from(table.rows).slice(1);
+            const sorted = rows.sort((a, b) => {
+                return a.cells[colIndex].textContent.localeCompare(b.cells[colIndex].textContent);
+            });
+            sorted.forEach(row => table.tBodies[0].appendChild(row));
+        }
+
+        // Export Table to CSV
+        function exportHistoryToCSV() {
+            const rows = [["Date", "Scan Name", "Type", "Status"]];
+            document.querySelectorAll("#historyTable tbody tr").forEach(tr => {
+                if (tr.style.display !== "none") {
+                    const cells = Array.from(tr.querySelectorAll("td")).slice(0, 4);
+                    rows.push(cells.map(td => td.textContent.trim()));
+                }
+            });
+            const csvContent = "data:text/csv;charset=utf-8," + rows.map(r => r.join(",")).join("\n");
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", "scan_history.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</main>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Scanner{% endblock %}
+
+{% block content %}
+<h2>Dashboard Overview</h2>
+
+<div class="dashboard-grid">
+    <div class="card stat">
+        <h3>Total Scans</h3>
+        <p>{{ stats.total_scans }}</p>
+    </div>
+    <div class="card stat">
+        <h3>Critical Vulnerabilities</h3>
+        <p>{{ stats.critical_vulns }}</p>
+    </div>
+    <div class="card stat">
+        <h3>Total Assets</h3>
+        <p>{{ stats.total_assets }}</p>
+    </div>
+    <div class="card stat">
+        <h3>Recent Scan Status</h3>
+        <p>{{ stats.recent_status }}</p>
+    </div>
+</div>
+
+<div style="margin: 20px 0;">
+    <button onclick="exportToCSV()">Export Stats to CSV</button>
+    <button onclick="window.print()">Export to PDF</button>
+</div>
+
+<hr>
+
+<h3>Vulnerability Charts</h3>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px; align-items: center;">
+    <div style="flex: 1; min-width: 300px; max-width: 600px;">
+        <canvas id="severityChart"></canvas>
+    </div>
+    <div style="flex: 1; min-width: 300px; max-width: 400px;">
+        <canvas id="owaspChart"></canvas>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const ctx = document.getElementById('severityChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ chart_data.labels | tojson }},
+        datasets: [{
+            label: 'Vulnerabilities',
+            data: {{ chart_data.counts | tojson }},
+            backgroundColor: ['#e74c3c', '#e67e22', '#f1c40f', '#3498db', '#95a5a6'],
+            borderRadius: 5,
+            barThickness: 30,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            x: {
+                ticks: {
+                    color: '#333',
+                    font: { size: 12 }
+                }
+            },
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    stepSize: 1,
+                    color: '#333'
+                }
+            }
+        }
+    }
+});
+
+const owaspCtx = document.getElementById('owaspChart').getContext('2d');
+new Chart(owaspCtx, {
+    type: 'pie',
+    data: {
+        labels: {{ owasp_data.labels | tojson }},
+        datasets: [{
+            label: 'OWASP Top 10',
+            data: {{ owasp_data.counts | tojson }},
+            backgroundColor: [
+                '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+                '#FF9F40', '#66BB6A', '#EF5350', '#29B6F6', '#AB47BC'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+</script>
+
+<hr>
+
+<h3>Recent Scans</h3>
+<input type="text" id="scanSearch" placeholder="Search scans..." class="scan-search-input">
+
+<table id="scanTable" class="scan-table">
+    <thead>
+        <tr>
+            <th onclick="sortTable(0)">Scan Name</th>
+            <th onclick="sortTable(1)">Environment</th>
+            <th onclick="sortTable(2)">Target URL</th>
+            <th onclick="sortTable(3)">Status</th>
+            <th onclick="sortTable(4)">Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for scan in recent_scans %}
+        <tr>
+            <td><a href="{{ url_for('main.scan', scan_id=scan.id) }}" class="view-link">{{ scan.scan_name }}</a></td>
+            <td>{{ scan.environment }}</td>
+            <td>{{ scan.target_url }}</td>
+            <td>{{ scan.status }}</td>
+            <td>{{ scan.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5" style="text-align: center;">No recent scans.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+function exportToCSV() {
+    const rows = [['Metric', 'Value'],
+        ['Total Scans', '{{ stats.total_scans }}'],
+        ['Critical Vulnerabilities', '{{ stats.critical_vulns }}'],
+        ['Total Assets', '{{ stats.total_assets }}'],
+        ['Recent Scan Status', '{{ stats.recent_status }}']
+    ];
+    let csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csvContent));
+    link.setAttribute("download", "dashboard_stats.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function sortTable(colIndex) {
+    const table = document.getElementById("scanTable");
+    const rows = Array.from(table.rows).slice(1);
+    const sortedRows = rows.sort((a, b) => a.cells[colIndex].textContent.localeCompare(b.cells[colIndex].textContent));
+    for (const row of sortedRows) table.tBodies[0].appendChild(row);
+}
+
+document.getElementById("scanSearch").addEventListener("keyup", function() {
+    const query = this.value.toLowerCase();
+    const rows = document.querySelectorAll("#scanTable tbody tr");
+    rows.forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(query) ? "" : "none";
+    });
+});
+</script>
+
+{% endblock %}
