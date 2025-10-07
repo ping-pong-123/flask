@@ -1,0 +1,1 @@
+https://0ace00bb03b808e1804353c70061003e.web-security-academy.net/product?productId=10 (GET)  # /usr/bin/sqlmap -r /tmp/tmpjbvl_v_8 --batch --dbs --level=3 --output-dir=sqlmap_scan_results/scan_-7210574839992264119
